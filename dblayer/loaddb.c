@@ -60,15 +60,15 @@ loadCSV() {
     // Open csv file, parse schema
     FILE *fp = fopen(CSV_NAME, "r");
     if (!fp) {
-	perror("data.csv could not be opened");
+        perror("data.csv could not be opened");
         exit(EXIT_FAILURE);
     }
 
     char buf[MAX_LINE_LEN];
     char *line = fgets(buf, MAX_LINE_LEN, fp);
     if (line == NULL) {
-	fprintf(stderr, "Unable to read data.csv\n");
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Unable to read data.csv\n");
+        exit(EXIT_FAILURE);
     }
 
     // Open main db file
@@ -86,16 +86,13 @@ loadCSV() {
     indexFD = PF_OpenFile(INDEX_NAME);
     checkerr(indexFD);
     // --Added--
-
     char *tokens[MAX_TOKENS];
     char record[MAX_PAGE_SIZE];
-
     while ((line = fgets(buf, MAX_LINE_LEN, fp)) != NULL) {
         int n = split(line, ",", tokens);
         assert (n == sch->numColumns);
         int len = encode(sch, tokens, record, sizeof(record));
         RecId rid;
-
         // --Added--
         err = Table_Insert(tbl, (byte *)record, len, &rid);
         checkerr(err);
@@ -110,7 +107,6 @@ loadCSV() {
         // --Added--
         err = AM_InsertEntry(indexFD, 'i', 4, (char *)&population, rid);
         // --Added--
-            
         checkerr(err);
     }
     fclose(fp);

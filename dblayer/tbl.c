@@ -3,20 +3,32 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 #include "tbl.h"
 #include "codec.h"
 #include "../pflayer/pf.h"
 
 #define SLOT_COUNT_OFFSET 2
-// --Added
+// --Added--
 #define HEADER_SIZE 4
-// --Added
+// --Added--
 #define checkerr(err) {if (err < 0) {PF_PrintError(); exit(EXIT_FAILURE);}}
 
 int  getLen(int slot, byte *pageBuf);
 int  getNumSlots(byte *pageBuf);
 void setNumSlots(byte *pageBuf, int nslots);
 int  getNthSlotOffset(int slot, char* pageBuf);
+
+// --Added--
+static short readShort(byte *ptr){
+    short v;
+    memcpy(&v, ptr, sizeof(short));
+    return v;
+}
+static void writeShort(byte *ptr, short v){
+    memcpy(ptr, &v, sizeof(short));
+}
+// --Added--
 
 
 /**
@@ -34,10 +46,13 @@ Table_Open(char *dbname, Schema *schema, bool overwrite, Table **ptable)
     // does not really need the schema, because we are only concentrating
     // on record storage. 
     // --Added--
-    int err;
+    int err = 0;
     PF_Init();
     if(overwrite){
-        PF_DestroyFile(dbname);
+        if(access(dbname, F_OK)==0){
+            err = PF_DestroyFile(dbname);
+            checkerr(err);
+        }
         err = PF_CreateFile(dbname);
         checkerr(err);
     }
@@ -48,6 +63,7 @@ Table_Open(char *dbname, Schema *schema, bool overwrite, Table **ptable)
     tbl->schema = schema;
     tbl->fd = fd;
     *ptable = tbl;
+    return err;
     // --Added--
 }
 
@@ -73,7 +89,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     int fd = tbl->fd;
     int pnum;
     char *pageBuff;
-    int err;
+    int err = 0;
     err = PF_GetFirstPage(fd, &pnum, &pageBuff);
     if(err==PFE_EOF){
         err = PF_AllocPage(fd, &pnum, &pageBuff);
@@ -92,6 +108,8 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
             if(avail >= len){
                 break;
             }
+            err = PF_UnfixPage(fd, pnum, FALSE);
+            checkerr(err);
             err = PF_GetNextPage(fd, &pnum, &pageBuff);
             if(err==PFE_EOF){
                 err = PF_AllocPage(fd, &pnum, &pageBuff);
@@ -115,6 +133,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     err = PF_UnfixPage(fd, pnum, TRUE);
     checkerr(err);
     *rid = (pnum<<16) | (slots&0xFFFF);
+    return err;
     // --Added--
 }
 
@@ -149,9 +168,9 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
 
 void
 Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
-        // For each page obtained using PF_GetFirstPage and PF_GetNextPage
-        //    for each record in that page,
-        //          callbackfn(callbackObj, rid, record, recordLen)
+    // For each page obtained using PF_GetFirstPage and PF_GetNextPage
+    //    for each record in that page,
+    //          callbackfn(callbackObj, rid, record, recordLen)
     // --Added--
     int fd = tbl->fd;
     int pnum;
@@ -167,6 +186,8 @@ Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
             RecId rid = (pnum<<16) | (i&0xFFFF);
             callbackfn(callbackObj, rid, (byte *)(pageBuff+offset), len);
         }
+        err = PF_UnfixPage(fd, pnum, false);
+        checkerr(err);
         err = PF_GetNextPage(fd, &pnum, &pageBuff);
         if(err==PFE_EOF) break;
         checkerr(err);
