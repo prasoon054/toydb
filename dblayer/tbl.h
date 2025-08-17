@@ -20,8 +20,9 @@ typedef struct {
 
 typedef struct {
     Schema *schema;
-
-    UNIMPLEMENTED; 
+    // --Added--
+    int fd; // FD for the underlying paged-file
+    // --Added-- 
     
 } Table ;
 
