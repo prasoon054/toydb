@@ -75,28 +75,43 @@ loadCSV() {
     Schema *sch = parseSchema(line);
     Table *tbl;
 
-    UNIMPLEMENTED;
+    // --Added--
+    int err;
+    int indexFD;
+    PF_Init();
+    err = Table_Open(DB_NAME, sch, true, &tbl);
+    checkerr(err);
+    err = AM_CreateIndex(DB_NAME, 0, 'i', 4);
+    checkerr(err);
+    indexFD = PF_OpenFile(INDEX_NAME);
+    checkerr(indexFD);
+    // --Added--
 
     char *tokens[MAX_TOKENS];
     char record[MAX_PAGE_SIZE];
 
     while ((line = fgets(buf, MAX_LINE_LEN, fp)) != NULL) {
-	int n = split(line, ",", tokens);
-	assert (n == sch->numColumns);
-	int len = encode(sch, tokens, record, sizeof(record));
-	RecId rid;
+        int n = split(line, ",", tokens);
+        assert (n == sch->numColumns);
+        int len = encode(sch, tokens, record, sizeof(record));
+        RecId rid;
 
-	UNIMPLEMENTED;
+        // --Added--
+        err = Table_Insert(tbl, (byte *)record, len, &rid);
+        checkerr(err);
+        // --Added--
 
-	printf("%d %s\n", rid, tokens[0]);
+        printf("%d %s\n", rid, tokens[0]);
 
-	// Indexing on the population column 
-	int population = atoi(tokens[2]);
+        // Indexing on the population column 
+        int population = atoi(tokens[2]);
 
-	UNIMPLEMENTED;
-	// Use the population field as the field to index on
-	    
-	checkerr(err);
+        // Use the population field as the field to index on
+        // --Added--
+        err = AM_InsertEntry(indexFD, 'i', 4, (char *)&population, rid);
+        // --Added--
+            
+        checkerr(err);
     }
     fclose(fp);
     Table_Close(tbl);
