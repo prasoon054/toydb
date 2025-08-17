@@ -132,7 +132,8 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     writeShort((byte *)pageBuff, (short)newStart);
     err = PF_UnfixPage(fd, pnum, TRUE);
     checkerr(err);
-    *rid = (pnum<<16) | (slots&0xFFFF);
+    // *rid = (pnum<<16) | (slots&0xFFFF);
+    *rid = ((pnum&0xFFFFFF)<<8) | (slots&0xFF);
     return err;
     // --Added--
 }
@@ -145,8 +146,11 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
  */
 int
 Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
-    int slot = rid & 0xFFFF;
-    int pageNum = rid >> 16;
+    // int slot = rid & 0xFFFF;
+    // int pageNum = rid >> 16;
+
+    int slot = rid & 0xFF;
+    int pageNum = (rid>>8) & 0xFFFFFF;
 
     // PF_GetThisPage(pageNum)
     // In the page get the slot offset of the record, and
@@ -183,7 +187,8 @@ Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
         for(int i=0; i<slots; i++){
             int offset = getNthSlotOffset(i, pageBuff);
             int len = getLen(i, (byte *)pageBuff);
-            RecId rid = (pnum<<16) | (i&0xFFFF);
+            // RecId rid = (pnum<<16) | (i&0xFFFF);
+            RecId rid = ((pnum&0xFFFFFF)<<8) | (i&0xFF);
             callbackfn(callbackObj, rid, (byte *)(pageBuff+offset), len);
         }
         err = PF_UnfixPage(fd, pnum, false);
